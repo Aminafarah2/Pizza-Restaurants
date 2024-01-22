@@ -2,11 +2,14 @@ from flask import Flask, request, make_response, jsonify
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Restaurant, Restaurant_pizza, Pizza
+from flask_cors import CORS
+
 
 
 
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restaurant.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -23,7 +26,7 @@ def get_restaurants():
 
 @app.route('/restaurants/<int:restaurant_id>', methods=['GET'])
 def get_restaurant(restaurant_id):
-    restaurant = Restaurant.query.get(restaurant_id)
+    restaurant = db.session.get(Restaurant, restaurant_id)
     if restaurant:
         pizzas = [{"id": pizza.id, "name": pizza.name, "ingredients": pizza.ingredients} for pizza in restaurant.pizzas]
         return jsonify({"id": restaurant.id, "name": restaurant.name, "address": restaurant.address, "pizzas": pizzas})
@@ -49,6 +52,21 @@ def get_pizzas():
     pizzas_list = [{"id": pizza.id, "name": pizza.name, "ingredients": pizza.ingredients} for pizza in pizzas]
     return jsonify(pizzas_list)
 
+@app.route('/pizzas/<int:pizza_id>', methods=['PATCH'])
+def update_pizza(pizza_id):
+    pizza = Pizza.query.get(pizza_id)
+    if not pizza:
+        return jsonify({"error": "Pizza not found"}), 404
+    data = request.get_json()
+
+    if 'name' in data:
+        pizza.name = data['name']
+
+    if 'ingredients' in data:
+        pizza.ingredients = data['ingredients']
+        
+    db.session.commit()
+    return jsonify({"id": pizza.id, "name": pizza.name, "ingredients": pizza.ingredients}), 200
 
 @app.route('/restaurant_pizzas', methods=['POST'])
 def create_restaurant_pizza():
